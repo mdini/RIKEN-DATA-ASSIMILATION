@@ -112,7 +112,7 @@ with strategy.scope():
 
     for i in range(100000000000000000000000000000):
         prange = np.random.choice(range(10000,70000),10)
-        out_data=np.array([np.load("../QG/PV/{}/HR/0.npy".format(i))*100000 for i in prange])
+        out_data=np.array([np.load("PV/{}/HR/0.npy".format(i))*100000 for i in prange])
         test=[np.random.normal(loc=np.mean(hr), scale=np.std(hr), size=(64,64)) for hr in out_data]
         test=np.array([ np.reshape(np.sort(y.flatten()), (64,64,1))  for y in test ])
         #in_data=np.array([ np.reshape(np.sort(y.flatten()), (32,32))  for y in out_data ])

@@ -28,9 +28,9 @@ with strategy.scope():
     i=0
     layers[i+1]=tf.keras.layers.Flatten()(layers[i])
     i=i+1
-    layers[i+1]=tf.keras.layers.Dense(30000)(layers[i])
+    layers[i+1]=tf.keras.layers.Dense(dim[0]*dim[1])(layers[i])
     i=i+1
-    layers[i+1]=tf.keras.layers.Dense(30000)(layers[i])
+    layers[i+1]=tf.keras.layers.Dense(dim[0]*dim[1])(layers[i])
     i=i+1
     layers[i+1]=tf.keras.layers.Flatten()(layers[i])
     i=i+1
@@ -55,7 +55,7 @@ with strategy.scope():
     checkpoint_dir_gen = os.path.dirname(checkpoint_path_gen)
 
 
-    generator.load_weights(checkpoint_path_gen)
+    generator.load_weights(checkpoint_path_gen).expect_partial()
 
     cp_callback_gen = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path_gen,
                                                  save_weights_only=True,
@@ -99,7 +99,7 @@ with strategy.scope():
     checkpoint_dir_dis = os.path.dirname(checkpoint_path_dis)
 
 
-    discriminator.load_weights(checkpoint_path_dis)
+    #discriminator.load_weights(checkpoint_path_dis).expect_partial()
 
     cp_callback_dis = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path_dis,
                                                  save_weights_only=True,
@@ -112,19 +112,28 @@ with strategy.scope():
 
     for i in range(10000):
         prange = range(10)#np.random.choice(range(1000000),10)
-        in_data=np.array([np.load("random/{}.npy".format(i))*100000 for i in prange])
-        out_data=np.array([np.load("data/{}.npy".format(i))*100000 for i in prange])
+        in_data=np.array([np.load("random/{}.npy".format(i))[:dim[0]]*100000 for i in prange])
+        out_data=np.array([np.load("data/{}.npy".format(i))[:dim[0]]*100000 for i in prange])
         in_data=np.array([ np.reshape(y, dim)  for y in in_data ])
         out_data=np.array([ np.reshape(y, dim)  for y in out_data ])
+        print(in_data.shape,out_data.shape)
         print('hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh',in_data.shape)
-        history_gen = generator.fit(in_data, out_data,  epochs=100,  callbacks=[cp_callback_gen])
+        ###############################################################
+        train_data = tf.data.Dataset.from_tensor_slices((in_data, out_data))
+        batch_size = 5
+        train_data = train_data.batch(batch_size)
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.OFF
+        train_data = train_data.with_options(options)
+        ###############################################################
+        history_gen = generator.fit(train_data,  epochs=100,  callbacks=[cp_callback_gen])
         artificial= generator.predict(in_data)
         print(artificial.shape,out_data.shape)
         np.save('out.npy',artificial[:5])
         p = np.random.permutation(len(prange))
-        images=np.concatenate((artificial, out_data), axis=0)[p]
-        classes=np.concatenate((np.ones(len(prange)),np.zeros(len(prange))) ,axis=0)[p]
-        history_dis = discriminator.fit(images, classes,  epochs=1, validation_split=0.02, callbacks=[cp_callback_dis])
+        #images=np.concatenate((artificial, out_data), axis=0)[p]
+        #classes=np.concatenate((np.ones(len(prange)),np.zeros(len(prange))) ,axis=0)[p]
+        #history_dis = discriminator.fit(images, classes,  epochs=1, validation_split=0.02, callbacks=[cp_callback_dis])
                                                      
     
             
